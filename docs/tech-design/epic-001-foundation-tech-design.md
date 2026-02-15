@@ -62,6 +62,18 @@ OpenAPI must define:
    - `OTP_RATE_LIMITED`
 4. Error examples must be normalized API contracts; do not expose provider internals.
 
+### Baseline API Contract Decisions (Approved)
+The EPIC-001 contract baseline is fixed as follows:
+
+1. Error envelope for all foundation endpoints:
+   - `error: { code, message, requestId, retryable }`
+   - minimum code set: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `RATE_LIMITED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_RATE_LIMITED`, `INTERNAL_ERROR`
+2. Pagination is mandatory for admin list/history endpoints:
+   - request query: `limit` (default `20`, max `100`), `cursor` (opaque), `sort` (whitelisted only)
+   - response payload: `data` and `page: { nextCursor, hasMore, limit }`
+3. `/api/admin/users/{id}/login-events` default sort order is `occurred_at desc`.
+4. OpenAPI artifacts must encode these contracts explicitly so FE integration is schema-driven.
+
 ### API Docs Access Policy (No Auth Semantic Change)
 Policy is enforced by one shared server-side guard:
 
@@ -113,14 +125,29 @@ RLS is mandatory and non-optional for both required tables.
 
 1. `profiles`
    - RLS enabled.
-   - Policies define self-scope access for authenticated users.
+   - Authenticated users can `SELECT` and `UPDATE` only their own row (`id = auth.uid()`).
    - Non-admin users must be denied access to other users' rows.
+   - Client-side `DELETE` is not allowed.
 2. `auth_login_events`
    - RLS enabled.
-   - Policies define self-scope access to login history rows.
+   - Authenticated users can `SELECT` only their own rows (`user_id = auth.uid()`).
    - Non-admin users must be denied access to other users' events.
+   - Client-side `INSERT`, `UPDATE`, and `DELETE` are not allowed.
 
 Admin operations stay behind server route handlers with explicit admin guard checks. Secret-key execution remains server-only.
+
+### OTP Anti-Abuse Baseline (Approved)
+OTP anti-abuse controls are mandatory and environment-driven:
+
+1. `OTP_TTL_SECONDS=300`
+2. `OTP_RESEND_COOLDOWN_SECONDS=30`
+3. OTP request limits:
+   - maximum `5` requests per `15` minutes per phone number
+   - maximum `10` requests per `15` minutes per IP
+4. OTP verify limits:
+   - maximum `5` verify attempts per OTP
+   - lockout `15` minutes when threshold is exceeded
+5. Exceeded thresholds return normalized `OTP_RATE_LIMITED` responses (never provider internals).
 
 ## UI Foundation (Layout and Design Tokens)
 
@@ -276,7 +303,7 @@ The following components must be token-compliant from the start:
 **How it is used**
 - Validate required environment variables during startup and fail immediately on missing/invalid values.
 - Centralize env parsing and type-safe access in one module.
-- Apply the same validation rules in development, preview, and production.
+- Apply the same validation rules in development, preview, test, and production.
 
 **Why this pattern**
 - Converts hidden runtime failures into deterministic startup failures.
@@ -296,9 +323,10 @@ The following components must be token-compliant from the start:
 5. Add `/docs/api` Swagger UI page with docs guard.
 6. Add baseline SQL migration for `profiles` and `auth_login_events`, including required indexes.
 7. Enable RLS and define baseline policies for both required tables.
-8. Add env schema validation and fail-fast behavior, including docs flags.
+8. Add env schema validation and fail-fast behavior, including docs flags and OTP anti-abuse vars.
 9. Implement admin middleware and `assertAdmin` guard utilities.
 10. Add security gate checks for OpenAPI schema, docs guard behavior, migration/policy existence, and RLS behavior.
+11. Add migration rollback-note template and enforce it in PR and release checklist for non-trivial migrations.
 
 ## Security Considerations
 - Supabase secret key must never be importable from client code.
@@ -306,16 +334,19 @@ The following components must be token-compliant from the start:
 - API docs/spec routes must use explicit guard policy and be disabled by default in production.
 - OpenAPI examples must not include `SUPABASE_SERVICE_ROLE_KEY` or provider internal error payloads.
 - RLS enablement and policy definitions for `profiles` and `auth_login_events` are mandatory release criteria.
+- OTP anti-abuse thresholds and lockout behavior are mandatory and must stay config-driven.
 - Logging remains best effort; logging failures must not block auth outcomes.
 
 ## Testing Strategy
 - Unit tests for env validation and role guard logic.
 - Unit tests for API docs guard policy evaluation across env combinations.
+- Unit tests for OTP anti-abuse policy thresholds, cooldown windows, and lockout behavior.
 - Integration tests for admin route/API access denial and allow paths.
 - Integration tests for `/docs/api` and `/api/openapi` allow/deny behavior.
 - Migration/policy existence checks for required schema artifacts.
 - OpenAPI schema lint/validation checks.
 - Integration tests that prove RLS allow/deny behavior by role and row ownership.
+- Integration tests for pagination contract and standardized error envelope on admin list/history endpoints.
 
 ## Security Gate Proposal (EPIC-001)
 
@@ -325,6 +356,7 @@ Run automated checks against SQL migrations to assert:
 2. Required indexes exist for both tables.
 3. `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` exists for both tables.
 4. `CREATE POLICY` statements exist for both tables.
+5. Non-trivial migrations include rollback notes in migration documentation/checklist.
 
 ### Gate S1.5 - OpenAPI Schema Validation
 Run schema quality checks against the EPIC-001 OpenAPI artifact:
@@ -332,6 +364,8 @@ Run schema quality checks against the EPIC-001 OpenAPI artifact:
 2. Required paths for foundation endpoints are present.
 3. `bearerAuth` security scheme is defined and bound to admin endpoints.
 4. Forbidden secret/internal patterns are absent from examples and descriptions.
+5. Standardized error envelope schema is referenced by foundation endpoints.
+6. Pagination request/response schemas are present for admin list/history endpoints.
 
 ### Gate S2 - RLS Behavior Integration Tests
 Run integration tests against a real test database using seeded users:
@@ -377,6 +411,13 @@ CI is no-go when any of the following fail:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_SECRET_KEY`
+- `OTP_TTL_SECONDS=300`
+- `OTP_RESEND_COOLDOWN_SECONDS=30`
+- `OTP_REQUEST_MAX_PER_PHONE_WINDOW=5`
+- `OTP_REQUEST_MAX_PER_IP_WINDOW=10`
+- `OTP_REQUEST_WINDOW_MINUTES=15`
+- `OTP_VERIFY_MAX_ATTEMPTS=5`
+- `OTP_VERIFY_LOCKOUT_MINUTES=15`
 - `API_DOCS_ENABLED=true`
 - `API_DOCS_REQUIRE_ADMIN=true`
 - `API_DOCS_ALLOW_IN_PROD=false`
@@ -402,6 +443,7 @@ CI is no-go when any of the following fail:
 - `NODE_ENV=test`
 - Same Supabase variables as local development, but using test context.
 - `API_DOCS_ENABLED` and related docs flags explicitly set per test suite scenario.
+- OTP anti-abuse variables explicitly set to deterministic test values per suite.
 - OTP provider set to deterministic fake mode for repeatable results.
 
 **Backward compatibility (temporary)**
@@ -438,6 +480,7 @@ CI is no-go when any of the following fail:
 - Mandatory: unit tests + integration tests for affected auth/admin modules.
 - Mandatory: migration/policy existence checks for `profiles` and `auth_login_events`.
 - Mandatory: RLS allow/deny integration tests for owner/non-owner access.
+- Mandatory: API contract checks for standardized error envelope and pagination schema.
 - Mandatory: security checks for admin guard and secret-key leakage patterns.
 - Gate rule: failing integration or security checks block merge (no override for EPIC-001).
 
@@ -455,13 +498,18 @@ Go:
 1. `US-001..US-004` acceptance criteria are fully met.
 2. Required schema, indexes, RLS enablement, and policies for `profiles` and `auth_login_events` are present in versioned migrations.
 3. Security gates (migration/policy existence + RLS behavior + admin guard + secret-key leakage) pass in CI.
-4. QA validates admin allow/deny flows and row-scoped login history behavior.
+4. OpenAPI checks confirm standardized error envelope and pagination schema for admin list/history endpoints.
+5. OTP anti-abuse thresholds and lockout behavior pass deterministic tests.
+6. Non-trivial migration changes include approved rollback notes.
+7. QA validates admin allow/deny flows and row-scoped login history behavior.
 
 No-go:
 1. Missing required table/index/policy artifacts for `profiles` or `auth_login_events`.
 2. RLS not enabled for either required table.
 3. Any failing security gate in CI.
-4. Any regression that exposes admin or secret-key capability to non-admin or client paths.
+4. Any failing OTP anti-abuse policy test.
+5. Any non-trivial migration without rollback notes.
+6. Any regression that exposes admin or secret-key capability to non-admin or client paths.
 
 ## Risks and Mitigations
 - Risk: route protection drift across new APIs.

@@ -6,6 +6,22 @@
 ## Sprint Goal
 Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline, UI foundation, and enforceable security gates for EPIC-001.
 
+## Resolved Kickoff Decisions (Approved)
+1. OTP anti-abuse baseline is fixed and env-driven:
+   - `OTP_TTL_SECONDS=300`
+   - `OTP_RESEND_COOLDOWN_SECONDS=30`
+   - request limits: max 5 per 15 minutes per phone, max 10 per 15 minutes per IP
+   - verify limits: max 5 attempts per OTP, then 15-minute lockout
+2. RLS baseline model is fixed:
+   - `profiles`: owner-only `SELECT/UPDATE`, no client-side delete
+   - `auth_login_events`: owner-only `SELECT`, no client-side write/delete
+3. API contract baseline is fixed:
+   - pagination: `limit` (default 20, max 100), `cursor`, `sort`
+   - response page shape: `page { nextCursor, hasMore, limit }`
+   - standardized error envelope: `error { code, message, requestId, retryable }`
+4. Env validation scope is fixed across `dev/preview/test/prod`.
+5. Non-trivial migrations must include rollback notes before promotion.
+
 ## Workstream A - Project Boundaries (`US-001`)
 1. Create standardized route groups for `public`, `admin`, and `api`.
 2. Create module boundaries in `lib`: `supabase`, `auth`, `logging`, `config`.
@@ -16,6 +32,7 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
    - `profiles`
    - `auth_login_events`
 7. Add required indexes for `profiles` search and `auth_login_events` history queries.
+8. Add migration documentation template that requires rollback notes for non-trivial migrations.
 
 ## Workstream B - Supabase Client Separation (`US-002`)
 1. Implement:
@@ -26,7 +43,9 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
 3. Prevent admin client imports in browser/client code paths.
 4. Add tests for context-correct client usage.
 5. Enable RLS on `profiles` and `auth_login_events`.
-6. Define baseline policies for row ownership allow/deny behavior on both tables.
+6. Define baseline policies for row ownership allow/deny behavior on both tables:
+   - `profiles`: owner-only `SELECT/UPDATE`, no client-side delete
+   - `auth_login_events`: owner-only `SELECT`, no client-side write/delete
 
 ## Workstream C - Environment Validation (`US-003`)
 1. Define env schema for dev/test/staging/prod.
@@ -43,6 +62,14 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
    - `API_DOCS_ENABLED`
    - `API_DOCS_REQUIRE_ADMIN`
    - `API_DOCS_ALLOW_IN_PROD`
+10. Add OTP anti-abuse env vars and document defaults:
+   - `OTP_TTL_SECONDS`
+   - `OTP_RESEND_COOLDOWN_SECONDS`
+   - `OTP_REQUEST_MAX_PER_PHONE_WINDOW`
+   - `OTP_REQUEST_MAX_PER_IP_WINDOW`
+   - `OTP_REQUEST_WINDOW_MINUTES`
+   - `OTP_VERIFY_MAX_ATTEMPTS`
+   - `OTP_VERIFY_LOCKOUT_MINUTES`
 
 ## Workstream D - OpenAPI + Swagger Baseline (`US-001`, `US-002`, `US-003`, `US-004`)
 1. Create EPIC-001 OpenAPI spec covering:
@@ -61,11 +88,12 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
    - disabled by default in production
    - optional admin-only enforcement when enabled
 6. Ensure docs layer does not change OTP/session/auth semantics.
+7. Encode pagination schema and standardized error envelope in OpenAPI for admin list/history endpoints.
 
 ## Workstream E - Admin Guard (Defense in Depth) (`US-004`)
 1. Add middleware protection for `/admin/*`.
 2. Implement `assertAdmin()` for all `/api/admin/*` handlers.
-3. Standardize unauthorized/forbidden response contracts.
+3. Standardize unauthorized/forbidden response contracts using the EPIC-001 error envelope.
 4. Prepare admin/non-admin fixtures for test execution.
 5. Ensure every `/api/admin/*` route verifies guard execution before domain operations.
 
@@ -87,8 +115,10 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
    - env validation boot behavior
    - role guard enforcement
    - OpenAPI artifact existence and endpoint coverage
+   - OTP anti-abuse threshold and lockout behavior
    - migration/policy existence checks for `profiles` and `auth_login_events`
    - RLS allow/deny behavior for owner vs non-owner access
+   - pagination and error-envelope behavior for admin list/history endpoints
 5. Add fixture matrix: unauthenticated, authenticated owner, authenticated non-owner, admin.
 
 ## Workstream H - CI Quality Gates
@@ -100,8 +130,10 @@ Complete architecture foundation, security boundaries, OpenAPI/Swagger baseline,
 6. Run admin guard enforcement tests in CI.
 7. Add explicit fail-fast CI conditions for EPIC-001 security gates.
 8. Add secret-key leakage checks (client bundle/static checks + docs/spec scanning).
-9. Block merge on security/auth test failures.
-10. Publish test logs/artifacts for failure diagnosis.
+9. Add CI checks for standardized error-envelope and pagination schema conformance in OpenAPI.
+10. Add CI checks that migration change sets include rollback notes for non-trivial migrations.
+11. Block merge on security/auth test failures.
+12. Publish test logs/artifacts for failure diagnosis.
 
 ## Recommended Execution Order
 1. A -> B
@@ -182,13 +214,17 @@ Go:
 2. `profiles` and `auth_login_events` required schema and indexes are present in versioned migrations.
 3. RLS is enabled and policies are defined for both tables.
 4. Migration/policy existence checks pass in CI.
-5. OpenAPI lint/validation passes in CI with required endpoint/security coverage.
+5. OpenAPI lint/validation passes in CI with required endpoint/security coverage, pagination schema, and standardized error envelope.
 6. Integration tests prove allowed/denied paths by role and ownership (RLS + docs guards + admin guard).
-7. QA issues go signal and Security issues must-pass signal.
+7. OTP anti-abuse thresholds and lockout behavior pass deterministic tests.
+8. Non-trivial migration changes include approved rollback notes.
+9. QA issues go signal and Security issues must-pass signal.
 
 No-go:
 1. Any missing required schema/index/policy artifact for the two required tables.
 2. OpenAPI schema invalid or missing required foundation endpoints/security scheme.
 3. Any failing RLS allow/deny integration test.
 4. Any failing docs route guard test or admin middleware/API guard test.
-5. Any detected secret-key leakage risk in client code paths or docs/spec artifacts.
+5. Any failing OTP anti-abuse policy test.
+6. Any detected secret-key leakage risk in client code paths or docs/spec artifacts.
+7. Any non-trivial migration without rollback notes.

@@ -62,7 +62,7 @@ As a Platform Engineer, I want env validation at startup so that misconfiguratio
 **Acceptance Criteria**  
 1. App fails fast when required env vars are missing.
 2. Required vars are documented.
-3. Validation runs in dev/preview/prod.
+3. Validation runs in dev/preview/test/prod.
 4. Pre-deploy validation verifies schema and policy migration state for `profiles` and `auth_login_events` before promotion.
 5. Validation failure for missing required schema/RLS artifacts is a release blocker.
 6. API docs env flags are validated and documented:
@@ -87,6 +87,24 @@ As a Security Engineer, I want `/admin/*` protected by middleware and server-sid
    - admin-only when enabled in protected environments
    - disabled by default in production unless explicit override
 
+## Resolved Baseline Decisions (Kickoff Inputs)
+1. OTP anti-abuse baseline is mandatory and env-driven:
+   - `OTP_TTL_SECONDS=300`
+   - `OTP_RESEND_COOLDOWN_SECONDS=30`
+   - request limits: max 5 requests per 15 minutes per phone; max 10 requests per 15 minutes per IP
+   - verify limits: max 5 attempts per OTP; lockout 15 minutes when exceeded
+2. RLS baseline policy model is fixed for EPIC-001:
+   - `profiles`: authenticated users can `SELECT/UPDATE` own row only (`id = auth.uid()`); no client-side delete policy
+   - `auth_login_events`: authenticated users can `SELECT` own rows only (`user_id = auth.uid()`)
+   - privileged writes/reads for admin and logging run through server-only/admin client paths
+3. Pagination contract is mandatory for list/history admin endpoints:
+   - request: `limit` (default 20, max 100), `cursor` (opaque), `sort` (whitelisted values only)
+   - response: `data` + `page` object with `nextCursor`, `hasMore`, and effective `limit`
+4. Error envelope contract is mandatory and stable:
+   - `error: { code, message, requestId, retryable }`
+   - minimum code set: `AUTH_REQUIRED`, `FORBIDDEN`, `NOT_FOUND`, `VALIDATION_ERROR`, `RATE_LIMITED`, `OTP_INVALID`, `OTP_EXPIRED`, `OTP_RATE_LIMITED`, `INTERNAL_ERROR`
+5. Migration rollback notes are required for every non-trivial migration and are treated as release criteria.
+
 ## EPIC-001 Security Gates (Cross-Story)
 1. Migration existence check confirms required `CREATE TABLE`, indexes, `ENABLE ROW LEVEL SECURITY`, and `CREATE POLICY` statements for `profiles` and `auth_login_events`.
 2. Integration tests validate RLS allow/deny paths using at least unauthenticated, authenticated user, and authenticated non-owner contexts.
@@ -99,6 +117,8 @@ As a Security Engineer, I want `/admin/*` protected by middleware and server-sid
    - `SUPABASE_SECRET_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
 6. Security gates are required in CI and configured as merge blockers.
+7. OTP anti-abuse threshold and lockout tests are required in CI and configured as merge blockers.
+8. Non-trivial migrations without rollback notes are treated as release blockers.
 
 ## Supabase Key Migration Note
 - New standard names:
