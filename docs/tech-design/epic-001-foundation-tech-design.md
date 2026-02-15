@@ -1,6 +1,6 @@
 # EPIC 001 Technical Design - Foundation
 
-- Status: Draft
+- Status: Approved
 - Related Requirements: `docs/requirements/epic-001-foundation.md`
 - Related ADR: `docs/adr/adr-0001-auth-platform-architecture.md`
 
