@@ -1,135 +1,143 @@
 # AGENTS.md
 
-## Mission
-Build a reusable Auth and User Management platform template for multi-app deployment using one codebase and config-driven environments.
+## Purpose
+This file defines repository-level engineering guardrails and coding conventions.
+It is intentionally feature-agnostic and should remain stable across EPICs.
 
-## Scope (Current Phase)
-In scope:
-- Phone SMS OTP authentication (passwordless)
-- Admin portal user management
-- Login history and basic device visibility
-- Security baseline for auth/admin flows
-- Multi-app reusability through env and theme tokens
+## What This File Is Not
+- Not a feature roadmap.
+- Not a story execution order.
+- Not a substitute for requirements and technical design docs.
 
-Out of scope:
-- Social login
-- Realtime force logout
-- Advanced RBAC and multi-tenant auth in one shared pool
-- Billing/subscription features
+Feature scope, priority, and acceptance criteria belong in:
+- `docs/requirements/*`
+- `docs/tech-design/*`
+- `docs/plans/*`
 
-## Canonical Sources
-- Product requirements and EPIC pages in Notion
-- Technical stack requirement in Notion
-- Architecture decision record: `docs/adr/adr-0001-auth-platform-architecture.md`
-
-Conflict priority:
+## Decision Priority
 1. Security
 2. Correctness
-3. Reusability
-4. UX
-5. Delivery speed
+3. Maintainability and extensibility
+4. Reusability
+5. UX
+6. Delivery speed
 
-If a requirement is ambiguous and impacts auth, security, or data model, stop and ask.
+If a requirement is ambiguous and impacts auth, security, API contracts, or data model, stop and ask.
 
-## Mandatory Tech Stack
+## Mandatory Stack
 - Next.js (App Router)
+- TypeScript
 - Tailwind CSS + shadcn/ui + lucide-react
 - Supabase Auth + Supabase PostgreSQL
 - Next.js Route Handlers for privileged backend operations
 - Vercel deployment with env-driven configuration
 
-## Execution Model (Track by User Story IDs)
-Implement in this order unless user explicitly reprioritizes:
-
-1. Foundation
-   - `US-001`, `US-002`, `US-003`, `US-004`
-2. EPIC 1 (Phone OTP)
-   - `US-101`, `US-102`, `US-103`, `US-104`
-3. EPIC 2 (Admin User Management)
-   - `US-201`, `US-202`, `US-203`, `US-204`, `US-205`
-4. EPIC 3 (Login History)
-   - `US-301`, `US-302`, `US-304` (P0)
-   - `US-303` (P1)
-5. EPIC 5 (Security Hardening)
-   - `US-501`, `US-502`
-6. EPIC 4 (Multi-App Reusability)
-   - `US-401` (validate at least two deploy targets)
-
-Rule:
-- Every PR/change summary must list the US IDs covered and whether AC is fully met or partial.
-
-## Architecture Guardrails
-- Use a single repo with clear boundaries: public flows, admin flows, and server APIs.
+## Architecture Invariants
+- Keep one repo and one deployable app with explicit boundaries.
 - Route boundaries:
   - Public auth APIs under `/api/auth/*`
   - Admin APIs under `/api/admin/*`
 - Keep privileged logic in server-only modules.
-- Do not bypass domain services for access control, rate limiting, or logging concerns.
+- Keep UI, API, domain, and data-access concerns separated.
 - Keep product-specific behavior config-driven; no hardcoded app identity logic.
+- Do not bypass domain services for access control, rate limiting, logging, or policy checks.
 
-## Security Non-Negotiables
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only and must never appear in client bundles.
+## Security Baseline
+- `SUPABASE_SECRET_KEY` is server-only and must never appear in client bundles.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` is the only client-safe Supabase key.
 - Protect `/admin/*` with both middleware and server-side role checks.
 - Enforce admin checks in every `/api/admin/*` route handler.
 - RLS must be enabled for `profiles` and `auth_login_events`.
-- OTP anti-abuse controls are mandatory (resend cooldown + per-phone/IP limits).
-- Login-event writes are best effort and must not break login success/failure behavior.
+- OTP anti-abuse controls are mandatory for OTP flows.
+- Logging remains best effort and must not break auth outcomes.
+- Never expose provider-internal errors or secrets to clients.
 
-## Data and Migration Standards
-Required tables:
-- `profiles` (`role: admin|user`, `status: active|disabled|deleted`)
-- `auth_login_events` (`LOGIN_SUCCESS|LOGIN_FAILED|OTP_REQUESTED` + metadata)
+## Supabase Key Standard
+- Project endpoint: `NEXT_PUBLIC_SUPABASE_URL`
+- Client-safe key: `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- Server-only privileged key: `SUPABASE_SECRET_KEY`
+- Legacy temporary mapping:
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` -> `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` -> `SUPABASE_SECRET_KEY`
 
-Optional (phase 2):
-- `user_devices`
+## Environment and Configuration Conventions
+- Centralize env parsing and validation in one typed module.
+- Fail fast at startup on missing or invalid required env vars.
+- Apply the same validation standard in dev, preview, test, and prod.
+- Keep config declarative and environment-driven.
+- Do not hardcode environment-specific behavior in feature modules.
 
-Migration rules:
+## Data and Migration Conventions
 - Use explicit, versioned SQL migrations.
-- Add supporting indexes for user search and login history performance.
-- Never run destructive migrations without explicit user approval.
-- RLS and policies are part of schema completion, not optional follow-up.
+- Prefer additive, backward-compatible migration strategy.
+- Include indexes needed for expected query patterns.
+- Treat RLS and policies as part of schema completion.
+- Never run destructive migrations without explicit approval.
+- Document rollback considerations for non-trivial schema changes.
 
-## API and Error Standards
-- Keep admin operations behind server Route Handlers.
-- Return stable error categories for OTP:
-  - `OTP_EXPIRED`
-  - `OTP_INVALID`
-  - `OTP_RATE_LIMITED`
-- Use pagination for user lists and login history endpoints.
-- Do not expose internal admin-provider errors directly to clients.
+## API and Error Conventions
+- Keep handlers thin; move business rules to domain/service modules.
+- Keep response contracts stable and explicit.
+- Normalize provider errors into product-safe error categories.
+- Use pagination for list/history endpoints by default.
+- Avoid leaking internal implementation details in API responses.
 
-## Quality and Testing Standards
+## Code Conventions
+- Prefer small, composable modules over large multipurpose files.
+- Enforce strict typing for boundary interfaces.
+- Keep naming consistent:
+  - kebab-case for files
+  - PascalCase for React components
+  - camelCase for variables/functions
+- Keep side effects at boundaries; keep domain logic deterministic where possible.
+- Comments must explain non-obvious intent, rationale, or tradeoffs (`why`), not restate code (`what`).
+- Avoid noisy comments for obvious operations (assignments, simple conditionals, straightforward loops).
+- Prefer clear naming and extraction over explanatory comments.
+- For complex logic, use one short high-value comment before the block instead of many line-by-line comments.
+- Avoid hidden cross-layer dependencies.
+
+## Testing and Quality Gates
 Minimum coverage expectation:
-- Unit tests
-  - Access control checks
-  - OTP policy logic (cooldown/limits)
-  - Logging best-effort behavior
-- Integration tests
-  - OTP request/verify flows
-  - Admin list/search/disable/delete endpoints
-  - Login history queries with pagination/sorting
-- Security tests
+- Unit tests:
+  - Access-control and policy decisions
+  - Env validation behavior
+  - Core business-rule branches
+- Integration tests:
+  - Auth and admin API flows
+  - Authorization allow/deny paths
+  - Pagination/sorting behavior for list/history endpoints
+- Security tests:
   - Admin route protection
   - Non-admin denial for admin APIs
-  - No service-role leakage to client
+  - Migration/policy existence checks for `profiles` and `auth_login_events`
+  - RLS allow/deny checks for owner/non-owner row access
+  - No secret-key leakage to client bundles
 
-Performance targets:
-- Admin user search under 3 seconds
-- Login history view under 1 second for expected load and indexed queries
+CI merge gate should fail on security or contract regressions.
 
-## Definition of Done (Per User Story)
-A story is done only when all conditions are met:
-- Story implementation matches accepted AC.
-- Relevant tests pass for new/changed behavior.
+## Change Management
+- Prefer small, reviewable changes with clear scope.
+- Preserve backward compatibility unless explicitly approved otherwise.
+- For contract changes, include migration and rollout notes.
+- For each change summary, include:
+  - impacted modules/contracts
+  - migration/policy impact
+  - security impact
+  - test coverage added or updated
+
+## Definition of Done (Generic)
+A change is done only when:
+- Behavior matches accepted requirements for its scope.
+- Relevant tests pass for changed behavior.
 - Security constraints remain intact.
 - Required env/config updates are documented.
-- Logging and error handling are production-safe.
-- No secrets committed and no service-role exposure.
+- No secrets are committed or exposed.
+- Operationally risky changes include rollback notes.
 
 ## Ask Before Proceeding
 Always ask before:
 - Destructive data changes or irreversible delete strategy changes
 - Auth/session semantic changes
 - Relaxing security controls for convenience
-- Major API contract changes that impact clients
-- Deviating from US priority order
+- Breaking API contract changes that impact clients
+- Disabling or bypassing required quality gates

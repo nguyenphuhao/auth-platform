@@ -14,9 +14,15 @@ Run multiple product deployments from one codebase using environment and token c
 - One repository and one app architecture.
 - Separate environment sets per app:
   - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  - `SUPABASE_SECRET_KEY`
 - Separate Supabase projects/environments per deployment target.
+
+## Backward Compatibility During Migration
+- Legacy names can be mapped temporarily:
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` -> `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` -> `SUPABASE_SECRET_KEY`
+- Target state for all new deployments and docs is publishable/secret naming only.
 
 ## Configuration Design
 - App-specific branding through theme tokens only.

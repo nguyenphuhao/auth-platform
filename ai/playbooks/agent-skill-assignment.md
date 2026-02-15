@@ -1,7 +1,7 @@
 # Agent Skill Assignment Guide
 
 Related quick process:
-- `docs/plans/idea-to-delivery-cheatsheet.md`
+- `ai/playbooks/idea-to-delivery-cheatsheet.md`
 
 ## Role to Skill Mapping
 - Product/PM -> `pm-delivery-planning`

@@ -23,3 +23,11 @@ As a Product Owner, I want the same codebase deployable to multiple apps via env
 1. At least two app deployments run from same repository.  
 2. Each deployment uses isolated Supabase project/env.  
 3. Branding/theme differences are token-based, not hardcoded logic.
+4. Supabase env naming is standardized across app deployments:
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+   - `SUPABASE_SECRET_KEY`
+
+## Backward Compatibility Note
+- Legacy key names can be temporarily supported during migration:
+  - `NEXT_PUBLIC_SUPABASE_ANON_KEY` -> `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+  - `SUPABASE_SERVICE_ROLE_KEY` -> `SUPABASE_SECRET_KEY`

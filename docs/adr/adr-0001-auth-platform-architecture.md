@@ -59,7 +59,7 @@ We adopt a single Next.js codebase with clear separation between public auth flo
 4. Infrastructure Layer
    - Supabase browser client for public client-side auth interactions.
    - Supabase server client for session-aware server operations.
-   - Supabase admin client with service-role key for privileged admin APIs only.
+   - Supabase admin client with secret key for privileged admin APIs only.
    - Optional Redis (phase extension) if stricter rate-limit guarantees are required.
 
 ### 3) Route and API Structure
@@ -122,7 +122,7 @@ All `/api/admin/*` handlers must execute explicit server-side role checks before
 
 #### Core Controls
 
-- `SUPABASE_SERVICE_ROLE_KEY` is server-only and never imported into client code.
+- `SUPABASE_SECRET_KEY` is server-only and never imported into client code.
 - `/admin/*` UI routes are protected by middleware plus server-side role checks in APIs.
 - Row-Level Security (RLS) is enabled for `profiles` and `auth_login_events`.
 - OTP request and verify endpoints enforce anti-abuse policies (cooldown and attempt limits).
@@ -135,7 +135,7 @@ All `/api/admin/*` handlers must execute explicit server-side role checks before
 
 - Admin:
   - Can perform user management and audit operations only through privileged server APIs.
-  - No direct service-role exposure to browser.
+  - No direct secret-key exposure to browser.
 
 ### 6) Authentication and Session Flows
 
@@ -167,9 +167,13 @@ Failure states to standardize:
 The system is reused by deploying the same codebase with different environment sets:
 
 - `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY`
 - App-level theme and branding tokens
+
+Backward compatibility during migration:
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` maps to `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY` maps to `SUPABASE_SECRET_KEY`
 
 Isolation rule:
 
