@@ -281,7 +281,9 @@ Non-goal in current phase:
 
 ## Follow-Up Decisions (Future ADRs)
 
-- ADR for concrete OTP policy parameters (TTL, resend cooldown, limits per IP/phone/device).
-- ADR for exact RLS policy SQL and migration governance.
+- OTP and RLS baseline decisions are resolved for EPIC-001 Foundation in:
+  - `docs/requirements/epic-001-foundation.md` (`Resolved Baseline Decisions`)
+  - `docs/tech-design/epic-001-foundation-tech-design.md` (`Required RLS Baseline`, `OTP Anti-Abuse Baseline`)
+- Future ADRs should focus on threshold tuning/versioning and extended policy evolution, not re-opening EPIC-001 baseline defaults.
 - ADR for observability stack integration and incident response workflow.
 - ADR for event contract schema and outbox processing standards for cross-database synchronization.

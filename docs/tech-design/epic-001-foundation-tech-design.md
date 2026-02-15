@@ -388,6 +388,9 @@ CI is no-go when any of the following fail:
 4. API docs route guard integration tests.
 5. Admin route/API guard tests.
 6. Secret-key leakage checks in client paths and OpenAPI/docs artifacts.
+7. API contract checks for standardized error envelope and pagination schema conformance.
+8. OTP anti-abuse threshold and lockout behavior tests.
+9. Non-trivial migration change-set checks for required rollback notes.
 
 ## Environment Setup by Stage
 
