@@ -1,0 +1,74 @@
+:root,
+[data-theme="light"] {
+  --font-sans: "Manrope", "Avenir Next", "Segoe UI", sans-serif;
+
+  --color-bg: 210 29% 96%;
+  --color-surface: 0 0% 100%;
+  --color-surface-elevated: 0 0% 100%;
+  --color-text-primary: 221 47% 11%;
+  --color-text-muted: 216 18% 43%;
+  --color-border: 216 24% 88%;
+  --color-focus-ring: 213 93% 53%;
+
+  --color-accent: 216 90% 52%;
+  --color-accent-foreground: 0 0% 100%;
+  --color-success: 158 64% 40%;
+  --color-warning: 39 91% 50%;
+  --color-danger: 0 74% 49%;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-7: 1.75rem;
+  --space-8: 2rem;
+
+  --radius-sm: 0.45rem;
+  --radius-md: 0.7rem;
+  --radius-lg: 1rem;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+
+  --line-height-tight: 1.2;
+  --line-height-normal: 1.5;
+
+  --shadow-sm: 0 1px 2px 0 hsl(220 35% 16% / 0.08);
+  --shadow-md: 0 10px 18px -12px hsl(220 35% 16% / 0.2);
+  --shadow-lg: 0 20px 35px -18px hsl(220 35% 16% / 0.3);
+}
+
+[data-theme="dark"] {
+  --color-bg: 225 30% 9%;
+  --color-surface: 225 22% 13%;
+  --color-surface-elevated: 225 18% 17%;
+  --color-text-primary: 220 17% 92%;
+  --color-text-muted: 219 12% 70%;
+  --color-border: 220 15% 25%;
+  --color-focus-ring: 215 91% 61%;
+
+  --color-accent: 213 94% 58%;
+  --color-accent-foreground: 221 47% 11%;
+  --color-success: 156 64% 48%;
+  --color-warning: 40 93% 56%;
+  --color-danger: 0 78% 59%;
+
+  --shadow-sm: 0 2px 8px hsl(220 50% 2% / 0.35);
+  --shadow-md: 0 12px 24px -12px hsl(220 50% 2% / 0.5);
+  --shadow-lg: 0 24px 45px -18px hsl(220 50% 2% / 0.62);
+}
+
+[data-app="health"] {
+  --color-accent: 173 69% 40%;
+  --color-focus-ring: 173 76% 42%;
+}
+
+[data-app="league"] {
+  --color-accent: 26 94% 56%;
+  --color-focus-ring: 26 88% 52%;
+}
